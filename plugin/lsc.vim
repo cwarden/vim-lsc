@@ -135,7 +135,7 @@ augroup LSC
   autocmd TextChangedI * call <SID>IfEnabled('lsc#complete#textChanged')
   autocmd InsertCharPre * call <SID>IfEnabled('lsc#complete#insertCharPre')
 
-  autocmd VimLeave * call lsc#server#exit()
+  autocmd VimLeave * call lsc#server#exit(v:false)
   if exists('##ExitPre')
     autocmd ExitPre * let g:_lsc_is_exiting = v:true
   endif

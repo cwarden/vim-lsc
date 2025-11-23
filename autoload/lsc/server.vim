@@ -49,22 +49,29 @@ function! lsc#server#forFileType(filetype) abort
   return [s:servers[g:lsc_servers_by_filetype[a:filetype]]]
 endfunction
 
-" Wait for all running servers to shut down with a 5 second timeout.
-function! lsc#server#exit() abort
-  let l:exit_start = reltime()
-  let l:pending = []
+" Request shutdown for all running servers.
+" Optionally wait (default) for up to 5 seconds for the servers to acknowledge.
+function! lsc#server#exit(...) abort
+  let l:wait_for_exit = a:0 > 0 ? a:1 : v:true
+  let l:pending = l:wait_for_exit ? [] : v:null
   for l:server in values(s:servers)
-    if s:Kill(l:server, 'exiting',
-        \ funcref('<SID>OnExit', [l:server.config.name, l:pending]))
+    let l:on_exit = l:wait_for_exit
+        \ ? funcref('<SID>OnExit', [l:server.config.name, l:pending])
+        \ : v:null
+    if s:Kill(l:server, 'exiting', l:on_exit) && l:wait_for_exit
       call add(l:pending, l:server.config.name)
     endif
   endfor
+  if !l:wait_for_exit
+    return v:true
+  endif
+  let l:exit_start = reltime()
   let l:reported = []
   while len(l:pending) > 0 && reltimefloat(reltime(l:exit_start)) <= 5.0
-     if reltimefloat(reltime(l:exit_start)) >= 1.0 && l:pending != l:reported
+    if reltimefloat(reltime(l:exit_start)) >= 1.0 && l:pending != l:reported
       echo 'Waiting for language server exit: '.join(l:pending, ', ')
       let l:reported = copy(l:pending)
-     endif
+    endif
     sleep 100m
   endwhile
   return len(l:pending) == 0
