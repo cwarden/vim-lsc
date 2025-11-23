@@ -73,13 +73,22 @@ function! s:Level(level) abort
   return ['Log', 'None'] " 'Log' or unmatched
 endfunction
 
-" Show all captured server messages in the quickfix window
-function! lsc#message#showInQuickFix() abort
-  call setqflist([], ' ', {
-      \ 'items': s:BuildQuickFixItems(),
+function! s:QuickFixOptions(items) abort
+  let l:options = {
+      \ 'items': a:items,
       \ 'title': 'LSC Server Messages',
       \ 'context': {'client': 'LSC-Messages'}
-      \})
+      \}
+  if !empty(a:items)
+    let l:options.idx = len(a:items)
+  endif
+  return l:options
+endfunction
+
+" Show all captured server messages in the quickfix window
+function! lsc#message#showInQuickFix() abort
+  let l:items = s:BuildQuickFixItems()
+  call setqflist([], ' ', s:QuickFixOptions(l:items))
   copen
 endfunction
 
@@ -107,7 +116,8 @@ function! s:UpdateQuickFix(...) abort
     return
   endif
   " Update the quickfix list with new messages
-  call setqflist([], 'r', {'items': s:BuildQuickFixItems()})
+  let l:items = s:BuildQuickFixItems()
+  call setqflist([], 'r', s:QuickFixOptions(l:items))
 endfunction
 
 " Convert level string to quickfix type
@@ -126,6 +136,18 @@ endfunction
 " Clear all stored messages
 function! lsc#message#clear() abort
   let s:messages = []
+  if exists('s:quickfix_debounce')
+    call timer_stop(s:quickfix_debounce)
+    unlet s:quickfix_debounce
+  endif
+  let l:current = getqflist({'context': 1})
+  let l:context = get(l:current, 'context', 0)
+  if type(l:context) != type({}) ||
+      \ !has_key(l:context, 'client') ||
+      \ l:context.client !=# 'LSC-Messages'
+    return
+  endif
+  call setqflist([], 'r', s:QuickFixOptions([]))
 endfunction
 
 " Get count of stored messages
